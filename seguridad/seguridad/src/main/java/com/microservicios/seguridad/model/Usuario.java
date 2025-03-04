@@ -9,8 +9,6 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 @Entity
 @Getter
@@ -22,20 +20,19 @@ public class Usuario implements UserDetails {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(unique = true, nullable = false)
     private String username;
+
+    @Column(nullable = false)
     private String password;
 
-    @ManyToMany(fetch = FetchType.EAGER)
-    @JoinTable(name = "usuario_roles",
-            joinColumns = @JoinColumn(name = "usuario_id"),
-            inverseJoinColumns = @JoinColumn(name = "rol_id"))
-    private Set<Rol> roles;
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "rol_id", nullable = false)
+    private Rol rol;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return roles.stream()
-                .map(rol -> (GrantedAuthority) () -> "ROLE_" + rol.getNombre()) // Asegura que los roles tengan "ROLE_"
-                .collect(Collectors.toList());
+        return List.of(() -> "ROLE_" + rol.getNombre().toUpperCase());
     }
 
     @Override
@@ -58,4 +55,3 @@ public class Usuario implements UserDetails {
         return true;
     }
 }
-

@@ -8,10 +8,9 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
-import com.microservicios.seguridad.model.Rol;
 
-import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Collections;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -22,23 +21,12 @@ public class UserDetailsServiceImpl implements UserDetailsService {
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         Usuario usuario = usuarioRepository.findByUsername(username)
-                .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado: " + username));
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
-        System.out.println("🔍 Usuario encontrado en BD: " + usuario.getUsername());
-        System.out.println("🔍 Contraseña en BD: " + usuario.getPassword());
-
-        // ✅ Convertir los roles correctamente a String
-        List<String> roles = usuario.getRoles().stream()
-                .map(Rol::getNombre) // ✅ Obtener solo el nombre del rol
-                .map(String::toUpperCase) // ✅ Convertirlo a mayúsculas
-                .toList();
-
-        System.out.println("✅ Roles convertidos: " + roles);
-
-        return User.builder()
-                .username(usuario.getUsername())
-                .password(usuario.getPassword())
-                .roles(roles.toArray(new String[0])) // ✅ Asignar los roles correctamente
-                .build();
+        return new User(
+                usuario.getUsername(),
+                usuario.getPassword(),
+                Collections.singleton(() -> "ROLE_" + usuario.getRol().getNombre().toUpperCase(Locale.ROOT))
+        );
     }
 }

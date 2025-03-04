@@ -1,38 +1,59 @@
 package com.microservicios.seguridad.service;
 
+import com.microservicios.seguridad.model.Usuario;
+import com.microservicios.seguridad.repository.UsuarioRepository;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
-import org.springframework.security.core.GrantedAuthority;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import java.security.Key;
-import java.util.*;
+import java.util.Date;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 @Service
 public class JwtService {
 
-    private static final String SECRET_KEY = "fz6EwP7wQ3J9bX8nKzT5Vd2L7yXgM5NhQ8RzA1LfC9BvK6XpJ3YmT2XwP9Q5LzN3";
+    private final UsuarioRepository usuarioRepository;
 
-    public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails) {
+    @Value("${jwt.secret}")
+    private String secretKey;
+
+    public JwtService(UsuarioRepository usuarioRepository) {
+        this.usuarioRepository = usuarioRepository;
+    }
+
+    public String generateToken(UserDetails userDetails) {
         return Jwts.builder()
-                .setClaims(extraClaims)
                 .setSubject(userDetails.getUsername())
-                .claim("roles", userDetails.getAuthorities().stream()
-                        .map(GrantedAuthority::getAuthority)
-                        .collect(Collectors.toList())) // Agrega roles en el token
                 .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 24)) // Expira en 1 hora
-                .signWith(getSignKey(), SignatureAlgorithm.HS256)
+                .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 24))
+                .signWith(getSignKey(), SignatureAlgorithm.HS512)
                 .compact();
     }
 
-    private Key getSignKey() {
-        byte[] keyBytes = Decoders.BASE64.decode(SECRET_KEY);
-        return Keys.hmacShaKeyFor(keyBytes);
+    public boolean isTokenValid(String token, UserDetails userDetails) {
+        if (userDetails == null) {
+            System.out.println("ERROR: userDetails es NULL, intentando recuperar usuario...");
+            String username = extractUsername(token);
+            System.out.println("Buscando usuario en la base de datos: " + username);
+
+            userDetails = usuarioRepository.findByUsername(username)
+                    .orElse(null);
+
+            if (userDetails == null) {
+                System.out.println("ERROR: No se encontró usuario en la base de datos.");
+                return false;
+            }
+        }
+
+        final String usernameFromToken = extractUsername(token);
+        boolean isValid = usernameFromToken.equals(userDetails.getUsername()) && !isTokenExpired(token);
+
+        System.out.println("¿El token es válido?: " + isValid);
+        return isValid;
     }
 
     public String extractUsername(String token) {
@@ -52,18 +73,12 @@ public class JwtService {
                 .getBody();
     }
 
-    public boolean isTokenValid(String token, UserDetails userDetails) {
-        final String username = extractUsername(token);
-        return (username.equals(userDetails.getUsername()) && !isTokenExpired(token));
-    }
-
     private boolean isTokenExpired(String token) {
         return extractClaim(token, Claims::getExpiration).before(new Date());
     }
 
-    // ✅ Método que extrae los roles del token
-    public List<String> extractRoles(String token) {
-        Claims claims = extractAllClaims(token);
-        return claims.get("roles", List.class); // Extrae los roles del token
+    private Key getSignKey() {
+        byte[] keyBytes = Decoders.BASE64.decode(secretKey);
+        return Keys.hmacShaKeyFor(keyBytes);
     }
 }

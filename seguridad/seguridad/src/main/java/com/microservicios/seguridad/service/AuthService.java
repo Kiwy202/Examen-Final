@@ -10,12 +10,9 @@ import com.microservicios.seguridad.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-
-import java.util.Map;
-import java.util.Set;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -27,19 +24,24 @@ public class AuthService {
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
 
+    @Transactional
     public AuthResponse register(RegisterRequest request) {
-        Rol rolUser = rolRepository.findByNombre("USER")
-                .orElseThrow(() -> new RuntimeException("Rol USER no encontrado"));
+        if (usuarioRepository.findByUsername(request.getUsername()).isPresent()) {
+            throw new RuntimeException("Username already taken");
+        }
+
+        // 🔍 Buscar el rol que se pasa en el request, si no existe, lanza error
+        Rol rol = rolRepository.findByNombre(request.getRol())
+                .orElseThrow(() -> new RuntimeException("Role " + request.getRol() + " not found"));
 
         Usuario usuario = new Usuario();
         usuario.setUsername(request.getUsername());
         usuario.setPassword(passwordEncoder.encode(request.getPassword()));
-        usuario.setRoles(Set.of(rolUser));
+        usuario.setRol(rol);  // ✅ Asignamos el rol correcto desde la solicitud
 
         usuarioRepository.save(usuario);
 
-        String token = jwtService.generateToken(Map.of("roles", usuario.getAuthorities()), usuario);
-
+        String token = jwtService.generateToken(usuario);
         return new AuthResponse(token);
     }
 
@@ -47,12 +49,15 @@ public class AuthService {
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
         );
-
-        UserDetails userDetails = usuarioRepository.findByUsername(request.getUsername())
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
-
-        String token = jwtService.generateToken(Map.of("roles", userDetails.getAuthorities()), userDetails);
-
+        Usuario usuario = usuarioRepository.findByUsername(request.getUsername())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        String token = jwtService.generateToken(usuario);
         return new AuthResponse(token);
+    }
+
+    public boolean validateToken(String token) {
+        Usuario usuario = usuarioRepository.findByUsername(jwtService.extractUsername(token))
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        return jwtService.isTokenValid(token, usuario);
     }
 }
