@@ -12,10 +12,10 @@ public class Empresa {
     private Long id;
 
     @Column(unique = true, nullable = false)
-    private String ruc; // Nuevo campo RUC
+    private String ruc;
 
     private String nombre;
     private String direccion;
     private String telefono;
-    private String usuarioRegistro; // Guarda quién creó la empresa
+    private String usuarioRegistro;
 }
