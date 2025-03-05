@@ -4,6 +4,7 @@ import com.microservicios.seguridad.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -26,12 +27,17 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
-                .csrf(csrf -> csrf.disable()) // ✅ Deshabilitamos CSRF
+                .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/auth/register", "/auth/login", "/auth/validate-token").permitAll()
                         .requestMatchers("/auth/user-info").authenticated()
-                        .requestMatchers("/users/admin").hasRole("ADMIN")
-                        .requestMatchers("/users/user").hasRole("USER")
+
+                        // Endpoints protegidos por rol
+                        .requestMatchers(HttpMethod.GET, "/users/admin").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/users/user").hasRole("USER")
+                        .requestMatchers(HttpMethod.PUT, "/users/user/**").hasRole("USER")
+                        .requestMatchers(HttpMethod.PUT, "/users/admin/**").hasRole("ADMIN")
+
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

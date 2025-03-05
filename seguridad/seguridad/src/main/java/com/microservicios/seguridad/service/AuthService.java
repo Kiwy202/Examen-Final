@@ -30,14 +30,14 @@ public class AuthService {
             throw new RuntimeException("Username already taken");
         }
 
-        // 🔍 Buscar el rol que se pasa en el request, si no existe, lanza error
+
         Rol rol = rolRepository.findByNombre(request.getRol())
                 .orElseThrow(() -> new RuntimeException("Role " + request.getRol() + " not found"));
 
         Usuario usuario = new Usuario();
         usuario.setUsername(request.getUsername());
         usuario.setPassword(passwordEncoder.encode(request.getPassword()));
-        usuario.setRol(rol);  // ✅ Asignamos el rol correcto desde la solicitud
+        usuario.setRol(rol);
 
         usuarioRepository.save(usuario);
 
